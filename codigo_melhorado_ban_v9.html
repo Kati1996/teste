@@ -1,0 +1,2437 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Gestão de DDS Consórcio Facility Maré</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts & Lucide Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- SheetJS CDN (Leitura de Excel .xlsx / .xls) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Chart.js CDN (Dashboard Analytics) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    canvas {
+      touch-action: none;
+    }
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #printArea, #printArea * {
+        visibility: visible;
+      }
+      #printArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+  <!-- TOP HEADER -->
+  <header class="bg-slate-900 text-white shadow-md border-b border-slate-800 sticky top-0 z-30 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <!-- Caixa azul original com os prédios geométricos dentro -->
+        <div class="bg-brand-600 p-2 rounded-lg text-white shadow-md flex items-end justify-center gap-0.5 h-10 w-10 relative overflow-hidden">
+          <!-- Prédio Esquerdo -->
+          <div class="w-2 h-5 bg-sky-300 rounded-t-sm"></div>
+          <!-- Prédio Central (Mais Alto) -->
+          <div class="w-2.5 h-7 bg-white rounded-t-sm"></div>
+          <!-- Prédio Direito -->
+          <div class="w-2 h-4 bg-blue-300 rounded-t-sm"></div>
+          <!-- Base inferior -->
+          <div class="absolute bottom-0 left-0 right-0 h-1 bg-white opacity-80"></div>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight tracking-tight">CONSÓRCIO FACILIY MARÉ</h1>
+          <p class="text-xs text-slate-400">Gestão de Diálogos Diários de Segurança</p>
+        </div>
+      </div>
+      
+      <!-- Quick Stats Badge -->
+      <div class="hidden sm:flex items-center gap-4 text-xs font-medium">
+        <div class="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-full flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
+          <span class="text-slate-300">Total de Registros:</span>
+          <span id="statTotalDDS" class="text-white font-bold">0</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+
+  <!-- NAVIGATION TABS -->
+  <nav class="bg-white border-b border-slate-200 sticky top-16 z-20 shadow-sm no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex space-x-8 overflow-x-auto">
+        <button id="tabDashboardBtn" onclick="switchTab('dashboard')" 
+                class="flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          Dashboard
+        </button>
+        <button id="tabNewBtn" onclick="switchTab('new')" 
+                class="flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors border-brand-600 text-brand-600 whitespace-nowrap">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          Novo DDS
+        </button>
+        <button id="tabWorkersBtn" onclick="switchTab('workers')" 
+                class="flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap">
+          <i data-lucide="users-group" class="w-4 h-4"></i>
+          Cadastro de Trabalhadores
+          <span id="badgeWorkersCount" class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs font-semibold">0</span>
+        </button>
+        <button id="tabHistoryBtn" onclick="switchTab('history')" 
+                class="flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap">
+          <i data-lucide="history" class="w-4 h-4"></i>
+          Histórico & Evidências
+          <span id="badgeHistoryCount" class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs font-semibold">0</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- TAB 0: DASHBOARD ANALYTICS -->
+    <div id="tabDashboard" class="hidden space-y-6">
+      <!-- KPI CARDS GRID -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- KPI 1 -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total de DDS Realizados</p>
+            <h3 id="kpiTotalDDS" class="text-2xl font-bold text-slate-900 mt-1">0</h3>
+            <p id="kpiDDSMonthSubText" class="text-[11px] text-slate-400 mt-0.5">0 no mês atual</p>
+          </div>
+          <div class="p-3 bg-brand-50 text-brand-600 rounded-xl border border-brand-100">
+            <i data-lucide="file-check-2" class="w-6 h-6"></i>
+          </div>
+        </div>
+
+        <!-- KPI 2 -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total de Presenças</p>
+            <h3 id="kpiTotalPresences" class="text-2xl font-bold text-slate-900 mt-1">0</h3>
+            <p id="kpiAvgPresenceSubText" class="text-[11px] text-slate-400 mt-0.5">Média: 0 por DDS</p>
+          </div>
+          <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100">
+            <i data-lucide="users" class="w-6 h-6"></i>
+          </div>
+        </div>
+
+        <!-- KPI 3 -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Base de Trabalhadores</p>
+            <h3 id="kpiTotalWorkers" class="text-2xl font-bold text-slate-900 mt-1">0</h3>
+            <p id="kpiActiveWorkersSubText" class="text-[11px] text-slate-400 mt-0.5">0 participaram pelo menos 1x</p>
+          </div>
+          <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100">
+            <i data-lucide="user-check" class="w-6 h-6"></i>
+          </div>
+        </div>
+
+        <!-- KPI 4 -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Setor Mais Ativo</p>
+            <h3 id="kpiTopSector" class="text-base font-bold text-slate-900 mt-1 truncate max-w-[150px]">-</h3>
+            <p id="kpiTopSectorSubText" class="text-[11px] text-slate-400 mt-0.5">0 registros</p>
+          </div>
+          <div class="p-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100">
+            <i data-lucide="map-pin" class="w-6 h-6"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHARTS SECTION -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- MONTHLY TREND CHART -->
+        <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="trending-up" class="w-5 h-5 text-brand-600"></i>
+              <h2 class="text-base font-semibold text-slate-900">Evolução Mensal de Realização de DDS</h2>
+            </div>
+            <span class="text-xs text-slate-400 font-medium">Últimos meses</span>
+          </div>
+          <div class="h-64 relative">
+            <canvas id="chartMonthlyTrend"></canvas>
+          </div>
+        </div>
+
+        <!-- SECTOR DISTRIBUTION CHART -->
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="pie-chart" class="w-5 h-5 text-brand-600"></i>
+              <h2 class="text-base font-semibold text-slate-900">Distribuição por Setor</h2>
+            </div>
+          </div>
+          <div class="h-64 relative flex items-center justify-center">
+            <canvas id="chartSectorDistribution"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- RANKING TABLES & TOP FACILITATORS -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- TOP FACILITATORS -->
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <i data-lucide="award" class="w-5 h-5 text-brand-600"></i>
+            <h2 class="text-base font-semibold text-slate-900">Facilitadores / Condutores Mais Ativos</h2>
+          </div>
+          <div class="border border-slate-200 rounded-lg overflow-hidden">
+            <table class="w-full text-left border-collapse">
+              <thead class="bg-slate-50 text-[11px] font-bold text-slate-600 uppercase border-b border-slate-200">
+                <tr>
+                  <th class="py-2.5 px-3">Facilitador</th>
+                  <th class="py-2.5 px-3 text-center">DDS Conduzidos</th>
+                  <th class="py-2.5 px-3 text-right">Participantes Impactados</th>
+                </tr>
+              </thead>
+              <tbody id="tableTopFacilitators" class="divide-y divide-slate-100 text-xs">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- RECENT ACTIVITY LOG -->
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <i data-lucide="activity" class="w-5 h-5 text-brand-600"></i>
+            <h2 class="text-base font-semibold text-slate-900">Últimos Diálogos Registrados</h2>
+          </div>
+          <div id="recentActivityList" class="space-y-3 max-h-[250px] overflow-y-auto pr-1">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 1: NOVO DDS FORM -->
+    <div id="tabNew" class="space-y-6">
+      <form id="ddsForm" onsubmit="saveDDS(event)" class="space-y-6">
+        
+        <!-- SECTION 1: HEADER & DATA -->
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <i data-lucide="file-text" class="w-5 h-5 text-brand-600"></i>
+            <h2 class="text-base font-semibold text-slate-900">Informações Básicas do Diálogo</h2>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Data e Hora *</label>
+              <input type="datetime-local" id="ddsDateTime" required
+                     class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Setor / Local *</label>
+              <input type="text" id="ddsSector" required placeholder="Ex: Obras Central - Bloco A"
+                     class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Facilitador / Condutor *</label>
+              <input type="text" id="ddsFacilitator" required placeholder="Ex: Eng. João Silva"
+                     class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 2: TEMA SELECTION -->
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="book-open" class="w-5 h-5 text-brand-600"></i>
+              <h2 class="text-base font-semibold text-slate-900">Tema Abordado</h2>
+            </div>
+            
+            <!-- TOGGLE TEMA TYPE -->
+            <div class="inline-flex p-1 bg-slate-100 rounded-lg border border-slate-200 text-xs">
+              <button type="button" id="btnThemePreset" onclick="toggleThemeMode('preset')"
+                      class="px-3 py-1 rounded-md font-medium shadow-sm transition-all bg-white text-slate-800">
+                Lista de Temas (600+)
+              </button>
+              <button type="button" id="btnThemeCustom" onclick="toggleThemeMode('custom')"
+                      class="px-3 py-1 rounded-md font-medium transition-all text-slate-600 hover:text-slate-900">
+                Tema Livre
+              </button>
+            </div>
+          </div>
+
+          <!-- PRESET THEMES DROPDOWN -->
+          <div id="themePresetWrapper" class="space-y-3">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Categoria de Segurança</label>
+                <select id="themeCategorySelect" onchange="filterThemesByCategory()"
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+                  <option value="ALL">Todas as Categorias (600+)</option>
+                </select>
+              </div>
+
+              <div class="md:col-span-2">
+                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Selecione o Tema Específico *</label>
+                <select id="themeSelect"
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- CUSTOM THEME INPUT -->
+          <div id="themeCustomWrapper" class="hidden space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Digite o Tema Personalizado *</label>
+              <input type="text" id="themeCustomInput" placeholder="Ex: Cuidados específicos com nova ferramenta X"
+                     class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+            </div>
+          </div>
+
+          <!-- DESCRICAO / RESUMO DO DDS -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Pontos Abordados & Observações</label>
+            <textarea id="ddsNotes" rows="3" placeholder="Resumo das orientações passadas, dúvidas sanadas e pontos de atenção repassados à equipe..."
+                      class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all"></textarea>
+          </div>
+        </div>
+
+        <!-- SECTION 3: PARTICIPANTS -->
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <i data-lucide="users" class="w-5 h-5 text-brand-600"></i>
+              <h2 class="text-base font-semibold text-slate-900">Participantes Presentes</h2>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <button type="button" onclick="openMultiSelectModal()"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs rounded-lg transition-colors shadow-sm">
+                <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
+                Selecionar Vários
+              </button>
+              <button type="button" onclick="switchTab('workers')"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 font-medium text-xs rounded-lg transition-colors border border-brand-200">
+                <i data-lucide="file-up" class="w-3.5 h-3.5"></i>
+                Importar de Excel / Gerenciar
+              </button>
+              <button type="button" onclick="openNewParticipantModal()"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-medium text-xs rounded-lg transition-colors shadow-sm">
+                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+                Novo Trabalhador
+              </button>
+            </div>
+          </div>
+
+          <!-- SELECT & ADD WORKERS TO DDS -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <select id="workerDropdown" class="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+              <option value="">-- Selecione um participante por vez --</option>
+            </select>
+            <button type="button" onclick="addWorkerToDDS()"
+                    class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5 shrink-0">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              Adicionar
+            </button>
+          </div>
+
+          <!-- SELECTED WORKERS LIST -->
+          <div class="border border-slate-200 rounded-lg overflow-hidden bg-white">
+            <div class="bg-slate-50 px-3 py-2 border-b border-slate-200 flex justify-between items-center text-xs font-semibold text-slate-600">
+              <span>Lista de Presentes no DDS</span>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="removeAllWorkersFromDDS()" class="text-red-600 hover:text-red-800 font-medium text-[11px]">
+                  Remover Todos
+                </button>
+                <span class="bg-brand-100 text-brand-800 px-2 py-0.5 rounded-full text-[11px] font-bold">
+                  <span id="selectedCount">0</span> selecionado(s)
+                </span>
+              </div>
+            </div>
+            <div id="selectedWorkersList" class="divide-y divide-slate-100 max-h-48 overflow-y-auto">
+              <div class="p-4 text-center text-xs text-slate-400 italic">Nenhum participante adicionado até o momento.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 4: EVIDENCES (PHOTO & SIGNATURE) -->
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <i data-lucide="camera" class="w-5 h-5 text-brand-600"></i>
+            <h2 class="text-base font-semibold text-slate-900">Evidências (Foto e Assinatura)</h2>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- PHOTO UPLOAD AREA -->
+            <div class="space-y-2">
+              <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Foto do DDS / Registro do Grupo</label>
+              <div class="relative border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-brand-500 transition-colors bg-slate-50 flex flex-col items-center justify-center min-h-[160px]">
+                <input type="file" id="photoInputCamera" accept="image/*" capture="environment" onchange="handlePhotoUpload(event)" class="hidden">
+                <input type="file" id="photoInputGallery" accept="image/*" onchange="handlePhotoUpload(event)" class="hidden">
+                <div id="photoPlaceholder" class="space-y-3 flex flex-col items-center">
+                  <i data-lucide="image-plus" class="w-8 h-8 text-slate-400"></i>
+                  <div class="flex flex-wrap justify-center gap-2">
+                    <label for="photoInputCamera" class="cursor-pointer px-3 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold flex items-center gap-1.5">
+                      <i data-lucide="camera" class="w-4 h-4"></i> Tirar foto
+                    </label>
+                    <label for="photoInputGallery" class="cursor-pointer px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1.5">
+                      <i data-lucide="image" class="w-4 h-4"></i> Escolher da galeria
+                    </label>
+                  </div>
+                  <p class="text-[10px] text-slate-400">A foto é reduzida automaticamente para economizar espaço</p>
+                </div>
+                <img id="photoImg" class="hidden max-h-40 rounded-lg object-cover shadow-sm border border-slate-200">
+                <button type="button" id="btnRemovePhoto" onclick="removePhoto()" class="hidden absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full shadow hover:bg-red-700 z-20">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- SIGNATURE CANVAS AREA -->
+            <div class="space-y-2">
+              <div class="flex justify-between items-center">
+                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Assinatura Digital do Condutor</label>
+                <button type="button" onclick="clearSignature()" class="text-xs text-red-600 hover:text-red-800 font-medium flex items-center gap-1">
+                  <i data-lucide="eraser" class="w-3.5 h-3.5"></i> Limpar
+                </button>
+              </div>
+              <div class="relative border border-slate-300 rounded-xl overflow-hidden bg-slate-50 h-[160px]">
+                <canvas id="signaturePad" class="w-full h-full cursor-crosshair relative z-10"></canvas>
+                <div id="signatureHint" class="absolute inset-0 flex items-center justify-center text-xs text-slate-400 pointer-events-none z-0">
+                  Assine aqui usando o mouse ou touch
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBMIT ACTION -->
+        <div class="flex justify-end pt-2">
+          <button type="submit" 
+                  class="w-full sm:w-auto px-8 py-3.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2">
+            <i data-lucide="save" class="w-5 h-5"></i>
+            Salvar e Registrar DDS
+          </button>
+        </div>
+
+      </form>
+    </div>
+
+    <!-- TAB 2: CADASTRO & IMPORTAÇÃO DE TRABALHADORES -->
+    <div id="tabWorkers" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- IMPORT FORM & FILE UPLOAD -->
+        <div class="lg:col-span-1 space-y-6">
+          <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <i data-lucide="file-spreadsheet" class="w-5 h-5 text-brand-600"></i>
+              <h2 class="text-base font-semibold text-slate-900">Importar do Excel / Tabela</h2>
+            </div>
+
+            <!-- FILE INPUT -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">1. Carregar Planilha (.xlsx, .xls, .csv)</label>
+              <input type="file" id="tabWorkerFileInput" accept=".xlsx, .xls, .csv, .json, .txt" onchange="handleTabWorkerFileUpload(event)"
+                     class="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 border border-slate-300 rounded-lg cursor-pointer">
+            </div>
+
+            <div class="relative flex py-1 items-center">
+              <div class="flex-grow border-t border-slate-200"></div>
+              <span class="flex-shrink mx-2 text-slate-400 text-xs font-medium uppercase">ou cole do Excel / Word</span>
+              <div class="flex-grow border-t border-slate-200"></div>
+            </div>
+
+            <!-- RAW TEXTAREA -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">2. Cole a lista copiada aqui</label>
+              <textarea id="tabWorkerRawText" rows="6" placeholder="Nome	Cargo	Matrícula
+João Silva	Eletricista	MAT-101
+Maria Santos	Técnica de Segurança	MAT-102"
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all"></textarea>
+            </div>
+
+            <!-- IMPORT MODE SELECTION -->
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-2">
+              <span class="font-semibold text-slate-700 block">Modo de Importação:</span>
+              <div class="flex items-center gap-4">
+                <label class="flex items-center gap-1.5 cursor-pointer text-slate-700">
+                  <input type="radio" name="tabImportMode" value="append" checked class="text-brand-600 focus:ring-brand-500">
+                  Adicionar novos
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer text-slate-700">
+                  <input type="radio" name="tabImportMode" value="replace" class="text-brand-600 focus:ring-brand-500">
+                  Substituir tudo
+                </label>
+              </div>
+            </div>
+
+            <button type="button" onclick="processTabWorkerImport()" 
+                    class="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-2">
+              <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+              Processar e Importar Lista
+            </button>
+          </div>
+
+          <!-- MANUAL ADD SINGLE WORKER CARD -->
+          <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <i data-lucide="user-plus" class="w-5 h-5 text-brand-600"></i>
+              <h2 class="text-base font-semibold text-slate-900">Cadastro Individual</h2>
+            </div>
+            <form onsubmit="handleTabSingleWorkerSave(event)" class="space-y-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Nome Completo *</label>
+                <input type="text" id="tabSingleName" required placeholder="Ex: Lucas Gabriel"
+                       class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Cargo / Função *</label>
+                <input type="text" id="tabSingleRole" required placeholder="Ex: Operador"
+                       class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Matrícula / RE *</label>
+                <input type="text" id="tabSingleReg" required placeholder="Ex: MAT-3021"
+                       class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+              </div>
+              <button type="submit" 
+                      class="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-medium text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                Adicionar Trabalhador
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- WORKERS LIST TABLE & MANAGEMENT -->
+        <div class="lg:col-span-2 space-y-4">
+          <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h2 class="text-base font-semibold text-slate-900">Trabalhadores Cadastrados</h2>
+                <p class="text-xs text-slate-500">Base de dados ativa para preenchimento rápido de DDS</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="clearAllWorkers()" 
+                        class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  Excluir Todos
+                </button>
+              </div>
+            </div>
+
+            <!-- SEARCH BAR & FILTER -->
+            <div class="relative">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+              <input type="text" id="tabSearchWorkers" oninput="renderTabWorkersTable()" placeholder="Buscar por nome, cargo ou matrícula..."
+                     class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+            </div>
+
+            <!-- TABLE CONTAINER -->
+            <div class="border border-slate-200 rounded-lg overflow-hidden bg-white max-h-[550px] overflow-y-auto">
+              <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-50 text-[11px] font-bold text-slate-600 uppercase border-b border-slate-200 sticky top-0 z-10">
+                  <tr>
+                    <th class="py-2.5 px-3">Trabalhador</th>
+                    <th class="py-2.5 px-3">Cargo / Função</th>
+                    <th class="py-2.5 px-3">Matrícula</th>
+                    <th class="py-2.5 px-3 text-right">Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="tabWorkersTableBody" class="divide-y divide-slate-100 text-xs">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="flex justify-between items-center pt-2 text-xs text-slate-500">
+              <span>Total de trabalhadores cadastrados: <strong id="tabTotalWorkersCount" class="text-slate-800">0</strong></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: HISTÓRICO & EVIDÊNCIAS -->
+    <div id="tabHistory" class="hidden space-y-6">
+      <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+        <div class="border-b border-slate-100 pb-4 flex flex-wrap gap-2 justify-between items-center">
+          <h2 class="text-base font-semibold text-slate-900">Histórico de Registros de DDS</h2>
+          <div class="flex items-center gap-3">
+            <span id="syncStatus" class="text-[11px] text-slate-400"></span>
+            <button onclick="syncFromSheet()" class="text-xs text-brand-600 hover:text-brand-800 font-medium flex items-center gap-1">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Atualizar
+            </button>
+            <button onclick="exportJSON()" class="text-xs text-slate-600 hover:text-slate-900 font-medium flex items-center gap-1">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i> Exportar JSON
+            </button>
+            <button onclick="clearAllHistory()" class="text-xs text-red-600 hover:text-red-800 font-medium flex items-center gap-1">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Limpar histórico
+            </button>
+          </div>
+        </div>
+
+        <!-- SEARCH AND FILTER BAR -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+            <input type="text" id="searchHistory" oninput="filterHistory()" placeholder="Buscar por tema, setor ou facilitador..."
+                   class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+          </div>
+          <div>
+            <input type="date" id="filterDate" onchange="filterHistory()"
+                   class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+          </div>
+        </div>
+
+        <!-- HISTORY GRID -->
+        <div id="historyGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+          <!-- DDS Cards injected via JS -->
+        </div>
+
+        <!-- EMPTY STATE -->
+        <div id="historyEmpty" class="hidden text-center py-12 space-y-3">
+          <i data-lucide="file-x-2" class="w-12 h-12 text-slate-300 mx-auto"></i>
+          <p class="text-sm font-medium text-slate-500">Nenhum registro de DDS encontrado.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL: MULTI-SELECT WORKERS -->
+  <div id="modalMultiSelectWorkers" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-2xl w-full p-6 space-y-4 flex flex-col max-h-[85vh]">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+          <i data-lucide="user-check" class="w-5 h-5 text-brand-600"></i>
+          Selecionar Múltiplos Trabalhadores
+        </h3>
+        <button type="button" onclick="closeMultiSelectModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- SEARCH & QUICK SELECTION TOOLS -->
+      <div class="space-y-2">
+        <div class="relative">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+          <input type="text" id="searchMultiSelectWorker" oninput="renderMultiSelectWorkersList()" placeholder="Buscar por nome, cargo ou matrícula..."
+                 class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+        </div>
+        <div class="flex justify-between items-center text-xs text-slate-600 px-1">
+          <div class="flex items-center gap-3">
+            <button type="button" onclick="selectAllFilteredWorkers(true)" class="text-brand-600 hover:underline font-medium">
+              Selecionar Todos Visíveis
+            </button>
+            <span class="text-slate-300">|</span>
+            <button type="button" onclick="selectAllFilteredWorkers(false)" class="text-slate-500 hover:underline font-medium">
+              Desmarcar Visíveis
+            </button>
+          </div>
+          <span class="text-slate-500"><strong id="modalSelectedCount">0</strong> selecionado(s)</span>
+        </div>
+      </div>
+
+      <!-- WORKERS CHECKBOX LIST -->
+      <div class="flex-1 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white max-h-[400px]">
+        <div id="multiSelectWorkersList" class="p-2 space-y-1">
+          <!-- Populated via JS -->
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center pt-2 border-t border-slate-100 text-xs">
+        <span class="text-slate-500">Cadastrados no banco: <strong id="modalTotalWorkersCount" class="text-slate-800">0</strong></span>
+        <div class="flex gap-2">
+          <button type="button" onclick="closeMultiSelectModal()"
+                  class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs rounded-lg transition-colors">
+            Cancelar
+          </button>
+          <button type="button" onclick="confirmMultiSelectModal()"
+                  class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs rounded-lg shadow transition-colors flex items-center gap-1.5">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            Confirmar Seleção
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD NEW PARTICIPANT -->
+  <div id="modalNewParticipant" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+          <i data-lucide="user-plus" class="w-5 h-5 text-brand-600"></i>
+          Cadastrar Novo Trabalhador
+        </h3>
+        <button type="button" onclick="closeNewParticipantModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="newWorkerForm" onsubmit="handleSaveNewWorker(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Nome Completo *</label>
+          <input type="text" id="newWorkerName" required placeholder="Ex: Maria Oliveira"
+                 class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Cargo / Função *</label>
+          <input type="text" id="newWorkerRole" required placeholder="Ex: Operadora de Empilhadeira"
+                 class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Matrícula / Registro *</label>
+          <input type="text" id="newWorkerReg" required placeholder="Ex: MAT-2045"
+                 class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeNewParticipantModal()"
+                  class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs rounded-lg transition-colors">
+            Cancelar
+          </button>
+          <button type="submit"
+                  class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs rounded-lg shadow transition-colors flex items-center gap-1">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            Salvar Trabalhador
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: VIEW DDS DETAILS -->
+  <div id="modalViewDDS" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+      <!-- Modal Header -->
+      <div class="p-4 bg-slate-900 text-white flex justify-between items-center no-print">
+        <div class="flex items-center gap-2">
+          <i data-lucide="file-check" class="w-5 h-5 text-brand-400"></i>
+          <h3 class="font-bold text-base">Evidência do DDS</h3>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="printModalDDS()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-medium flex items-center gap-1">
+            <i data-lucide="printer" class="w-4 h-4"></i> Imprimir / PDF
+          </button>
+          <button type="button" onclick="closeViewDDSModal()" class="text-slate-400 hover:text-white">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Body / Printable Content -->
+      <div id="printArea" class="p-6 overflow-y-auto space-y-6 flex-1 text-slate-800">
+        <!-- Content dynamically injected via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // --- 1. DATA DATABASE & LOCAL STORAGE KEYS ---
+    const STORAGE_KEY_DDS = 'safeguard_dds_records';
+    const STORAGE_KEY_WORKERS = 'safeguard_dds_workers';
+
+    // Categories & Themes Generator for DDS Themes
+    const THEME_CATEGORIES = {
+      'NR-35 Trabalho em Altura': [
+        'Uso correto do cinto de segurança do tipo paraquedista',
+        'Inspeção prévia dos pontos de ancoragem',
+        'Fator de queda e distância de desaceleração',
+        'Sistemas de proteção coletiva contra quedas (Guarda-corpo)',
+        'Cuidados no uso de escadas duplas e extensíveis',
+        'Checklist e segurança em andaimes fachadeiros',
+        'Condições meteorológicas adversas em altura',
+        'Resgate e emergência em trabalhos suspensos'
+      ],
+      'NR-10 Segurança Elétrica': [
+        'Cinco regras de ouro da desenergização elétrica',
+        'Inspeção e classe de isolamento de luvas de borracha',
+        'Perigos e prevenção de arco elétrico (Arc Flash)',
+        'Uso correto de ferramentas isoladas VDE',
+        'Sinalização e bloqueio LOTO em quadros elétricos',
+        'Riscos da eletricidade estática e aterramento provisório',
+        'Cuidados ao operar próximo a redes de alta tensão'
+      ],
+      'NR-33 Espaço Confinado': [
+        'Definição e identificação de Espaços Confinados',
+        'Papel e responsabilidades do Vigia de Espaço Confinado',
+        'Monitoramento contínuo da atmosfera (Medidor multigás)',
+        'Procedimentos de ventilação mecânica forçada',
+        'Planos de resgate e acionamento de emergência',
+        'Permissão de Entrada e Trabalho (PET) - Preenchimento correto'
+      ],
+      'EPI e EPC': [
+        'Higienização, guarda e conservação correta dos EPIs',
+        'Certificado de Aprovação (CA) - Validade e obrigatoriedade',
+        'Proteção auditiva: Abafadores vs Plugues de inserção',
+        'Óculos de proteção: Prevenção contra impactos e respingos',
+        'Sinalização de segurança e fitas de isolamento de área'
+      ],
+      'Ergonomia': [
+        'Postura correta para levantamento de cargas do solo',
+        'Pausas ativas e ginástica laboral durante a jornada',
+        'Ajustes ergonômicos em postos de trabalho e telas',
+        'Movimentos repetitivos e prevenção da LER/DORT',
+        'Manuseio manual de cargas e limites de peso individual'
+      ],
+      'Saúde Mental & Bem-Estar': [
+        'Prevenção ao Estresse Ocupacional e Síndrome de Burnout',
+        'Importância da escuta ativa e empatia na equipe',
+        'Sono, descanso e seu impacto na atenção do trabalhador',
+        'Combate ao assédio moral e sexual no ambiente de trabalho',
+        'Comunicação assertiva e redução de conflitos'
+      ],
+      'Primeiros Socorros': [
+        'Atendimento inicial em caso de queimaduras térmicas e químicas',
+        'Procedimentos para contenção de hemorragias externas',
+        'Identificação de sinais de parada cardiorrespiratória (RCP)',
+        'Primeiros socorros em engasgos e obstrução de vias aéreas',
+        'Como proceder em fraturas, entorses e imobilizações'
+      ],
+      'Direção Defensiva': [
+        'Distância de seguimento e tempo de reação ao dirigir',
+        'Inspeção diária do veículo (Pneus, freios, luzes)',
+        'Perigos do uso do celular e distrações ao volante',
+        'Condução em condições de chuva, neblina e pista molhada',
+        'Respeito aos limites de velocidade nas vias internas da empresa'
+      ],
+      'Organização e Limpeza (5S)': [
+        'Seiri (Utilização): Eliminar o desnecessário da área',
+        'Seiton (Organização): Um lugar para cada coisa',
+        'Seiso (Limpeza): Inspeção e conservação das ferramentas',
+        'Segregação correta de resíduos industriais e recicláveis',
+        'Organização de cabos e extensões elétricas pelo chão'
+      ]
+    };
+
+    function generateFullThemeList() {
+      const list = [];
+      let count = 1;
+
+      Object.keys(THEME_CATEGORIES).forEach(category => {
+        const baseTopics = THEME_CATEGORIES[category];
+        baseTopics.forEach(topic => {
+          const variations = [
+            `Conceitos Fundamentais e Normativos`,
+            `Análise de Riscos e Práticas Preventivas`,
+            `Estudo de Caso e Exemplos Reais`,
+            `Boas Práticas e Checklist do Dia`,
+            `Erros Comuns e Como Evitá-los`,
+            `Responsabilidade Individual e Coletiva`,
+            `Procedimentos em Caso de Anomalia`
+          ];
+
+          variations.forEach(varName => {
+            list.push({
+              id: count,
+              category: category,
+              title: `[#${String(count).padStart(3, '0')}] ${category}: ${topic} - ${varName}`
+            });
+            count++;
+          });
+        });
+      });
+      return list;
+    }
+
+    const ALL_THEMES = generateFullThemeList();
+
+    // App State Variables
+    let currentWorkers = [];
+    let selectedWorkerIds = new Set();
+    let tempSelectedWorkerIds = new Set();
+    let currentPhotoBase64 = '';
+    let currentThemeMode = 'preset'; 
+    let isDrawingSignature = false;
+    let hasSignatureStroke = false;
+
+    // Chart.js Instances
+    let monthlyTrendChartInstance = null;
+    let sectorDistChartInstance = null;
+
+
+    // --- SINCRONIZAÇÃO ENTRE NAVEGADORES (a planilha Google é a fonte única) ---
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxdLLRJGmlYEWVDMHgWkFu4ZK0fANBLEywcLCFEBd3bGQlPzUft5j_REMlZHjG4rAfg/exec";
+    const STORAGE_KEY_OUTBOX = 'safeguard_outbox';
+    const STORAGE_KEY_MIGRATED = 'safeguard_sync_v2_migrated';
+    let syncRunning = false;
+    let scriptReady = false;
+    let flushing = null;
+    const pendingFull = {};
+
+    function partCount(rec) {
+      if (rec.participants && rec.participants.length) return rec.participants.length;
+      return Number(rec.participantsCount) || 0;
+    }
+
+    function normDate(s) {
+      if (!s) return '';
+      s = String(s).trim();
+      const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:[ ,]+(\d{2}):(\d{2}))?/);
+      if (m) return `${m[3]}-${m[2]}-${m[1]}T${m[4] || '00'}:${m[5] || '00'}`;
+      const d = new Date(s);
+      if (isNaN(d)) return s.slice(0, 16);
+      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      return d.toISOString().slice(0, 16);
+    }
+
+    function recKey(r) {
+      const n = v => String(v || '').trim().toLowerCase();
+      return [normDate(r.dateTime), n(r.theme), n(r.sector), n(r.facilitator)].join('|');
+    }
+
+    function hashKey(k) {
+      return btoa(unescape(encodeURIComponent(k))).replace(/[^a-z0-9]/gi, '').slice(0, 40);
+    }
+
+    function setSyncStatus(msg) {
+      const el = document.getElementById('syncStatus');
+      if (el) el.textContent = msg;
+    }
+
+    // Fila de envio: guarda as alterações e reenvia se a rede cair
+    function getOutbox() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY_OUTBOX) || '[]'); }
+      catch (e) { return []; }
+    }
+    function setOutbox(q) {
+      try { localStorage.setItem(STORAGE_KEY_OUTBOX, JSON.stringify(q)); }
+      catch (e) { console.warn('Fila de envio cheia:', e); }
+    }
+    function queueSheetOp(op) {
+      const q = getOutbox();
+      q.push(op);
+      setOutbox(q);
+      flushOutbox();
+    }
+
+    async function checkScript() {
+      if (scriptReady) return true;
+      try {
+        const r = await fetch(WEB_APP_URL + '?aba=ping');
+        const d = await r.json();
+        scriptReady = !!(d && d.v >= 2);
+      } catch (e) {
+        scriptReady = false;
+      }
+      return scriptReady;
+    }
+
+    function flushOutbox() {
+      if (flushing) return flushing;
+      flushing = (async () => {
+        if (getOutbox().length === 0) return;
+        if (!(await checkScript())) return;
+        let q = getOutbox();
+        while (q.length) {
+          let op = q[0];
+          if (op.ref) { // registro de DDS: monta o envio completo (com foto/assinatura) a partir do histórico local
+            const rec = pendingFull[op.id] || getStoredHistory().find(r => r.id === op.id);
+            op = rec ? Object.assign({}, rec, { action: 'saveDDS' }) : null;
+          }
+          if (op) {
+            try {
+              await fetch(WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(op) });
+              if (q[0].ref) delete pendingFull[q[0].id];
+            } catch (e) {
+              break; // sem rede: mantém na fila
+            }
+          }
+          q = getOutbox();
+          q.shift();
+          setOutbox(q);
+        }
+      })().finally(() => { flushing = null; });
+      return flushing;
+    }
+
+    async function fetchAba(aba) {
+      const res = await fetch(WEB_APP_URL + '?aba=' + encodeURIComponent(aba));
+      const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('Resposta inesperada da planilha');
+      return data;
+    }
+
+    function fromSheetRec(item) {
+      const rec = {
+        id: String(item.id || item.ID || ''),
+        dateTime: normDate(item.dateTime || item['Data/Hora'] || ''),
+        sector: String(item.sector || item.Setor || 'Outros'),
+        facilitator: String(item.facilitator || item.Facilitador || 'Não Informado'),
+        theme: String(item.theme || item.Tema || 'Sem tema'),
+        notes: String(item.notes || item.Observações || ''),
+        participants: Array.isArray(item.participants) ? item.participants : [],
+        participantsCount: Number(item.participantsCount || item['Qtd Participantes']) || 0,
+        photo: item.photo || '',
+        signature: item.signature || ''
+      };
+      if (!rec.id) rec.id = 'sheet_' + hashKey(recKey(rec));
+      return rec;
+    }
+
+    function fromSheetWorker(f, i) {
+      const name = String(f.name || f.Nome || f.NOME || f['Nome Completo'] || '').trim();
+      if (!name) return null;
+      const reg = String(f.reg || f.Matrícula || f.Matricula || f.MATRICULA || '-').trim();
+      return {
+        id: String(f.id || f.ID || ('w_sheet_' + hashKey(reg + '|' + name + '|' + i))),
+        name: name,
+        role: String(f.role || f.Cargo || f.CARGO || f.Função || '-').trim(),
+        reg: reg
+      };
+    }
+
+    async function syncFromSheet() {
+      if (syncRunning) return;
+      syncRunning = true;
+      try {
+        if (!(await checkScript())) {
+          setSyncStatus('⚠ Atualize o Apps Script (v2) para sincronizar');
+          return;
+        }
+        await flushOutbox();
+        if (getOutbox().length) {
+          setSyncStatus('Alterações pendentes de envio…');
+          return;
+        }
+
+        const [sheetHist, sheetWorkers] = await Promise.all([
+          fetchAba('Histórico').catch(() => null),
+          fetchAba('Trabalhadores').catch(() => null)
+        ]);
+        if (!sheetHist || !sheetWorkers) {
+          setSyncStatus('Sem conexão com a planilha');
+          return;
+        }
+        const migrated = !!localStorage.getItem(STORAGE_KEY_MIGRATED);
+
+        // 1) Histórico de DDS
+        const local = getStoredHistory();
+        const localByKey = new Map(local.map(r => [recKey(r), r]));
+        const recs = sheetHist.map(fromSheetRec);
+        const sheetKeys = new Set(recs.map(recKey));
+        recs.forEach(r => { // preserva evidências locais se a planilha ainda não tem
+          const l = localByKey.get(recKey(r));
+          if (!l) return;
+          if (!r.photo) r.photo = l.photo || '';
+          if (!r.signature) r.signature = l.signature || '';
+          if (!r.participants.length) r.participants = l.participants || [];
+        });
+        if (!migrated) { // primeira vez: sobe o que só existia neste navegador
+          local.filter(r => !sheetKeys.has(recKey(r))).forEach(r => {
+            recs.push(r);
+            queueSheetOp({ action: 'saveDDS', id: r.id, ref: true });
+          });
+        }
+        recs.sort((a, b) => String(b.dateTime).localeCompare(String(a.dateTime)));
+        try { localStorage.setItem(STORAGE_KEY_DDS, JSON.stringify(recs)); }
+        catch (e) { console.warn('Armazenamento local cheio:', e); }
+
+        // 2) Trabalhadores
+        let workers = sheetWorkers.map(fromSheetWorker).filter(Boolean);
+        if (!migrated) {
+          const sheetWKeys = new Set(workers.map(w => (w.reg !== '-' ? w.reg : w.name).toLowerCase()));
+          const onlyLocal = currentWorkers.filter(w => !sheetWKeys.has(String(w.reg || w.name).toLowerCase()));
+          if (onlyLocal.length) {
+            workers = workers.concat(onlyLocal);
+            queueSheetOp({ action: 'upsertWorkers', workers: onlyLocal });
+          }
+        }
+        if (JSON.stringify(workers) !== JSON.stringify(currentWorkers)) {
+          currentWorkers = workers;
+          const ids = new Set(workers.map(w => String(w.id)));
+          selectedWorkerIds = new Set(Array.from(selectedWorkerIds).filter(id => ids.has(String(id))));
+          localStorage.setItem(STORAGE_KEY_WORKERS, JSON.stringify(currentWorkers));
+          renderWorkerDropdown();
+          renderSelectedWorkers();
+          updateWorkerBadgesAndTables();
+        }
+
+        localStorage.setItem(STORAGE_KEY_MIGRATED, '1');
+
+        // 3) Atualiza o que estiver na tela
+        updateHistoryStats();
+        const visible = id => !document.getElementById(id).classList.contains('hidden');
+        if (visible('tabDashboard')) renderDashboard();
+        if (visible('tabHistory')) renderHistoryList();
+        setSyncStatus('Sincronizado às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+      } catch (err) {
+        console.warn('Sincronização falhou:', err);
+        setSyncStatus('Falha ao sincronizar');
+      } finally {
+        syncRunning = false;
+      }
+    }
+
+    // Canvas Signature Pad Context
+    let canvas, ctx;
+
+    // --- 2. INITIALIZATION ON LOAD ---
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      initDatetime();
+      loadWorkers();
+      populateThemeCategories();
+      populateThemesDropdown('ALL');
+      initSignaturePad();
+      updateHistoryStats();
+      syncFromSheet();
+      setInterval(syncFromSheet, 2 * 60 * 1000);
+      window.addEventListener('online', () => syncFromSheet());
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) syncFromSheet(); });
+
+      window.addEventListener('resize', resizeCanvas);
+    });
+
+    function initDatetime() {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      document.getElementById('ddsDateTime').value = now.toISOString().slice(0, 16);
+    }
+
+    // --- 3. WORKERS & PARTICIPANTS LOGIC ---
+    function loadWorkers() {
+      const stored = localStorage.getItem(STORAGE_KEY_WORKERS);
+      if (stored) {
+        try {
+          currentWorkers = JSON.parse(stored);
+        } catch (e) {
+          currentWorkers = [];
+        }
+      } else {
+        currentWorkers = [];
+        localStorage.setItem(STORAGE_KEY_WORKERS, JSON.stringify(currentWorkers));
+      }
+      renderWorkerDropdown();
+      updateWorkerBadgesAndTables();
+    }
+
+    function updateWorkerBadgesAndTables() {
+      document.getElementById('badgeWorkersCount').textContent = currentWorkers.length;
+      renderTabWorkersTable();
+    }
+
+    function renderWorkerDropdown() {
+      const dropdown = document.getElementById('workerDropdown');
+      dropdown.innerHTML = '<option value="">-- Selecione um participante --</option>';
+      
+      currentWorkers.forEach(w => {
+        const opt = document.createElement('option');
+        opt.value = w.id;
+        opt.textContent = `${w.name} - ${w.role} (${w.reg})`;
+        dropdown.appendChild(opt);
+      });
+    }
+
+    function renderTabWorkersTable() {
+      const tbody = document.getElementById('tabWorkersTableBody');
+      const countEl = document.getElementById('tabTotalWorkersCount');
+      const query = (document.getElementById('tabSearchWorkers')?.value || '').toLowerCase();
+
+      countEl.textContent = currentWorkers.length;
+
+      let filtered = currentWorkers;
+      if (query) {
+        filtered = currentWorkers.filter(w => 
+          w.name.toLowerCase().includes(query) ||
+          w.role.toLowerCase().includes(query) ||
+          w.reg.toLowerCase().includes(query)
+        );
+      }
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-xs text-slate-400 italic">Nenhum funcionário encontrado.</td></tr>`;
+        return;
+      }
+
+      let html = '';
+      filtered.forEach(w => {
+        html += `
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="py-2.5 px-3">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-xs shrink-0 border border-brand-200">
+                  ${w.name.charAt(0).toUpperCase()}
+                </div>
+                <span class="font-semibold text-slate-800">${w.name}</span>
+              </div>
+            </td>
+            <td class="py-2.5 px-3 text-slate-600">${w.role}</td>
+            <td class="py-2.5 px-3 font-mono text-slate-600">${w.reg}</td>
+            <td class="py-2.5 px-3 text-right">
+              <button type="button" onclick="deleteWorker('${w.id}')" title="Excluir Trabalhador" class="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-md transition-colors inline-flex items-center gap-1">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    function handleTabSingleWorkerSave(e) {
+      e.preventDefault();
+      const name = document.getElementById('tabSingleName').value.trim();
+      const role = document.getElementById('tabSingleRole').value.trim();
+      const reg = document.getElementById('tabSingleReg').value.trim();
+
+      if (!name || !role || !reg) return;
+
+      const newWorker = {
+        id: 'w_' + Date.now(),
+        name: name,
+        role: role,
+        reg: reg
+      };
+
+      currentWorkers.push(newWorker);
+      queueSheetOp({ action: 'upsertWorkers', workers: [newWorker] });
+      localStorage.setItem(STORAGE_KEY_WORKERS, JSON.stringify(currentWorkers));
+      
+      renderWorkerDropdown();
+      updateWorkerBadgesAndTables();
+      
+      document.getElementById('tabSingleName').value = '';
+      document.getElementById('tabSingleRole').value = '';
+      document.getElementById('tabSingleReg').value = '';
+    }
+
+    function handleTabWorkerFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const fileName = file.name.toLowerCase();
+
+      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            const tsvText = XLSX.utils.sheet_to_csv(worksheet, { FS: "\t" });
+            document.getElementById('tabWorkerRawText').value = tsvText;
+          } catch (err) {
+            alert('Erro ao ler a planilha Excel. Verifique se o arquivo não está corrompido.');
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          document.getElementById('tabWorkerRawText').value = e.target.result;
+        };
+        reader.readAsText(file);
+      }
+    }
+
+    function processTabWorkerImport() {
+      const rawText = document.getElementById('tabWorkerRawText').value.trim();
+      if (!rawText) {
+        alert('Por favor, selecione um arquivo Excel ou cole a lista de funcionários.');
+        return;
+      }
+
+      let newWorkersList = [];
+
+      if (rawText.startsWith('[') || rawText.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(rawText);
+          const arrayData = Array.isArray(parsed) ? parsed : [parsed];
+          newWorkersList = arrayData.map((item, index) => ({
+            id: 'w_' + Date.now() + '_' + index,
+            name: item.name || item.nome || item.Nome || 'Sem Nome',
+            role: item.role || item.cargo || item.Cargo || item.funcao || item.Função || 'Não Informado',
+            reg: item.reg || item.matricula || item.Matricula || item.Matrícula || item.id || `MAT-${1000 + index}`
+          }));
+        } catch (err) {
+          alert('Erro ao interpretar formato JSON. Verifique a sintaxe.');
+          return;
+        }
+      } else {
+        const lines = rawText.split(/\r?\n/).filter(line => line.trim() !== '');
+        if (lines.length === 0) {
+          alert('Nenhuma linha de texto encontrada para importar.');
+          return;
+        }
+
+        const sampleLine = lines[0];
+        let delimiter = '\t';
+        if (sampleLine.includes('\t')) delimiter = '\t';
+        else if (sampleLine.includes(';') && !sampleLine.includes(',')) delimiter = ';';
+        else if (sampleLine.includes(',')) delimiter = ',';
+
+        const firstLineCols = lines[0].split(delimiter).map(c => c.trim().toLowerCase());
+        const hasHeader = firstLineCols.some(col => 
+          col.includes('nome') || col.includes('cargo') || col.includes('matricula') || 
+          col.includes('matrícula') || col.includes('função') || col.includes('role') || col.includes('name')
+        );
+
+        const startIndex = hasHeader ? 1 : 0;
+
+        for (let i = startIndex; i < lines.length; i++) {
+          const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, ''));
+          if (cols.length === 0 || !cols[0]) continue;
+
+          newWorkersList.push({
+            id: 'w_' + Date.now() + '_' + i,
+            name: cols[0] || 'Sem Nome',
+            role: cols[1] || 'Não Informado',
+            reg: cols[2] || `MAT-${1000 + i}`
+          });
+        }
+      }
+
+      if (newWorkersList.length === 0) {
+        alert('Nenhum funcionário válido pôde ser extraído dos dados fornecidos.');
+        return;
+      }
+
+      const importMode = document.querySelector('input[name="tabImportMode"]:checked').value;
+
+      if (importMode === 'replace') {
+        currentWorkers = newWorkersList;
+        selectedWorkerIds.clear();
+      } else {
+        newWorkersList.forEach(nw => {
+          const exists = currentWorkers.some(cw => cw.reg === nw.reg || cw.name.toLowerCase() === nw.name.toLowerCase());
+          if (!exists) {
+            currentWorkers.push(nw);
+          }
+        });
+      }
+
+      if (importMode === 'replace') {
+        queueSheetOp({ action: 'clearWorkers' });
+        queueSheetOp({ action: 'upsertWorkers', workers: currentWorkers });
+      } else {
+        const added = newWorkersList.filter(nw => currentWorkers.includes(nw));
+        if (added.length) queueSheetOp({ action: 'upsertWorkers', workers: added });
+      }
+
+      localStorage.setItem(STORAGE_KEY_WORKERS, JSON.stringify(currentWorkers));
+      renderWorkerDropdown();
+      renderSelectedWorkers();
+      updateWorkerBadgesAndTables();
+      document.getElementById('tabWorkerRawText').value = '';
+      document.getElementById('tabWorkerFileInput').value = '';
+
+      alert(`✅ Sucesso! ${newWorkersList.length} funcionário(s) processado(s) e importado(s).`);
+    }
+
+    function clearAllWorkers() {
+      if (currentWorkers.length === 0) {
+        alert('Nenhum trabalhador cadastrado para excluir.');
+        return;
+      }
+      if (!confirm('Deseja realmente excluir TODOS os trabalhadores cadastrados da base de dados?')) return;
+      currentWorkers = [];
+      queueSheetOp({ action: 'clearWorkers' });
+      selectedWorkerIds.clear();
+      localStorage.setItem(STORAGE_KEY_WORKERS, JSON.stringify(currentWorkers));
+      renderWorkerDropdown();
+      renderSelectedWorkers();
+      updateWorkerBadgesAndTables();
+    }
+
+    function deleteWorker(id) {
+      const worker = currentWorkers.find(w => String(w.id) === String(id));
+      if (!worker) return;
+
+      if (!confirm(`Tem certeza que deseja excluir o funcionário "${worker.name}" (${worker.reg})?`)) return;
+
+      currentWorkers = currentWorkers.filter(w => String(w.id) !== String(id));
+      queueSheetOp({ action: 'deleteWorker', id: String(id) });
+      selectedWorkerIds.delete(id);
+
+      localStorage.setItem(STORAGE_KEY_WORKERS, JSON.stringify(currentWorkers));
+
+      renderWorkerDropdown();
+      renderSelectedWorkers();
+      updateWorkerBadgesAndTables();
+    }
+
+    function addWorkerToDDS() {
+      const dropdown = document.getElementById('workerDropdown');
+      const val = dropdown.value;
+      if (!val) return;
+
+      selectedWorkerIds.add(val);
+      dropdown.value = '';
+      renderSelectedWorkers();
+    }
+
+    function removeWorkerFromDDS(id) {
+      selectedWorkerIds.delete(id);
+      renderSelectedWorkers();
+    }
+
+    function removeAllWorkersFromDDS() {
+      if (selectedWorkerIds.size === 0) return;
+      selectedWorkerIds.clear();
+      renderSelectedWorkers();
+    }
+
+    // --- MULTI-SELECT WORKERS MODAL LOGIC ---
+    function openMultiSelectModal() {
+      if (currentWorkers.length === 0) {
+        alert('Nenhum trabalhador cadastrado. Cadastre ou importe trabalhadores primeiro.');
+        switchTab('workers');
+        return;
+      }
+
+      tempSelectedWorkerIds = new Set(selectedWorkerIds);
+      document.getElementById('searchMultiSelectWorker').value = '';
+      document.getElementById('modalTotalWorkersCount').textContent = currentWorkers.length;
+      document.getElementById('modalMultiSelectWorkers').classList.remove('hidden');
+      renderMultiSelectWorkersList();
+    }
+
+    function closeMultiSelectModal() {
+      document.getElementById('modalMultiSelectWorkers').classList.add('hidden');
+    }
+
+    function confirmMultiSelectModal() {
+      selectedWorkerIds = new Set(tempSelectedWorkerIds);
+      renderSelectedWorkers();
+      closeMultiSelectModal();
+    }
+
+    function renderMultiSelectWorkersList() {
+      const container = document.getElementById('multiSelectWorkersList');
+      const query = (document.getElementById('searchMultiSelectWorker')?.value || '').toLowerCase();
+      
+      let filtered = currentWorkers;
+      if (query) {
+        filtered = currentWorkers.filter(w => 
+          w.name.toLowerCase().includes(query) ||
+          w.role.toLowerCase().includes(query) ||
+          w.reg.toLowerCase().includes(query)
+        );
+      }
+
+      document.getElementById('modalSelectedCount').textContent = tempSelectedWorkerIds.size;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 italic">Nenhum funcionário encontrado.</div>`;
+        return;
+      }
+
+      let html = '';
+      filtered.forEach(w => {
+        const isChecked = tempSelectedWorkerIds.has(w.id);
+        html += `
+          <label class="flex items-center justify-between p-2.5 rounded-lg border ${isChecked ? 'bg-brand-50/60 border-brand-300' : 'border-slate-100 hover:bg-slate-50'} cursor-pointer transition-all">
+            <div class="flex items-center gap-3 overflow-hidden">
+              <input type="checkbox" value="${w.id}" ${isChecked ? 'checked' : ''} onchange="toggleTempWorkerSelection('${w.id}', this.checked)"
+                     class="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500">
+              <div class="truncate">
+                <p class="text-xs font-semibold text-slate-800 truncate">${w.name}</p>
+                <p class="text-[10px] text-slate-500">${w.role} • <span class="font-mono text-slate-600">${w.reg}</span></p>
+              </div>
+            </div>
+          </label>
+        `;
+      });
+
+      container.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    function toggleTempWorkerSelection(id, isChecked) {
+      if (isChecked) {
+        tempSelectedWorkerIds.add(id);
+      } else {
+        tempSelectedWorkerIds.delete(id);
+      }
+      renderMultiSelectWorkersList();
+    }
+
+    function selectAllFilteredWorkers(select) {
+      const query = (document.getElementById('searchMultiSelectWorker')?.value || '').toLowerCase();
+      let filtered = currentWorkers;
+      if (query) {
+        filtered = currentWorkers.filter(w => 
+          w.name.toLowerCase().includes(query) ||
+          w.role.toLowerCase().includes(query) ||
+          w.reg.toLowerCase().includes(query)
+        );
+      }
+
+      filtered.forEach(w => {
+        if (select) {
+          tempSelectedWorkerIds.add(w.id);
+        } else {
+          tempSelectedWorkerIds.delete(w.id);
+        }
+      });
+
+      renderMultiSelectWorkersList();
+    }
+
+    function renderSelectedWorkers() {
+      const container = document.getElementById('selectedWorkersList');
+      const counter = document.getElementById('selectedCount');
+      
+      counter.textContent = selectedWorkerIds.size;
+
+      if (selectedWorkerIds.size === 0) {
+        container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 italic">Nenhum participante adicionado até o momento.</div>`;
+        return;
+      }
+
+      let html = '';
+      selectedWorkerIds.forEach(id => {
+        const w = currentWorkers.find(item => item.id === id);
+        if (w) {
+          html += `
+            <div class="flex items-center justify-between p-2.5 hover:bg-slate-50 transition-colors">
+              <div class="flex items-center gap-2 overflow-hidden">
+                <div class="w-7 h-7 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-xs shrink-0">
+                  ${w.name.charAt(0).toUpperCase()}
+                </div>
+                <div class="truncate">
+                  <p class="text-xs font-semibold text-slate-800 truncate">${w.name}</p>
+                  <p class="text-[10px] text-slate-500">${w.role} • <span class="font-mono text-slate-600">${w.reg}</span></p>
+                </div>
+              </div>
+              <button type="button" onclick="removeWorkerFromDDS('${w.id}')" class="text-slate-400 hover:text-red-600 p-1 transition-colors">
+                <i data-lucide="x-circle" class="w-4 h-4"></i>
+              </button>
+            </div>
+          `;
+        }
+      });
+
+      container.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    function openNewParticipantModal() {
+      document.getElementById('modalNewParticipant').classList.remove('hidden');
+    }
+
+    function closeNewParticipantModal() {
+      document.getElementById('modalNewParticipant').classList.add('hidden');
+      document.getElementById('newWorkerForm').reset();
+    }
+
+    function handleSaveNewWorker(e) {
+      e.preventDefault();
+      const name = document.getElementById('newWorkerName').value.trim();
+      const role = document.getElementById('newWorkerRole').value.trim();
+      const reg = document.getElementById('newWorkerReg').value.trim();
+
+      if (!name || !role || !reg) return;
+
+      const newWorker = {
+        id: 'w_' + Date.now(),
+        name: name,
+        role: role,
+        reg: reg
+      };
+
+      currentWorkers.push(newWorker);
+      queueSheetOp({ action: 'upsertWorkers', workers: [newWorker] });
+      localStorage.setItem(STORAGE_KEY_WORKERS, JSON.stringify(currentWorkers));
+      
+      renderWorkerDropdown();
+      updateWorkerBadgesAndTables();
+      selectedWorkerIds.add(newWorker.id);
+      renderSelectedWorkers();
+      
+      closeNewParticipantModal();
+    }
+
+    // --- 4. THEMES DROPDOWN LOGIC ---
+    function populateThemeCategories() {
+      const select = document.getElementById('themeCategorySelect');
+      select.innerHTML = '<option value="ALL">Todas as Categorias (600+)</option>';
+      Object.keys(THEME_CATEGORIES).forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        select.appendChild(opt);
+      });
+    }
+
+    function filterThemesByCategory() {
+      const category = document.getElementById('themeCategorySelect').value;
+      populateThemesDropdown(category);
+    }
+
+    function populateThemesDropdown(categoryFilter) {
+      const dropdown = document.getElementById('themeSelect');
+      dropdown.innerHTML = '';
+
+      const filtered = categoryFilter === 'ALL' 
+        ? ALL_THEMES 
+        : ALL_THEMES.filter(t => t.category === categoryFilter);
+
+      filtered.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.title;
+        opt.textContent = t.title;
+        dropdown.appendChild(opt);
+      });
+    }
+
+    function toggleThemeMode(mode) {
+      currentThemeMode = mode;
+      const btnPreset = document.getElementById('btnThemePreset');
+      const btnCustom = document.getElementById('btnThemeCustom');
+      const wrapperPreset = document.getElementById('themePresetWrapper');
+      const wrapperCustom = document.getElementById('themeCustomWrapper');
+
+      if (mode === 'preset') {
+        btnPreset.className = "px-3 py-1 rounded-md font-medium shadow-sm transition-all bg-white text-slate-800";
+        btnCustom.className = "px-3 py-1 rounded-md font-medium transition-all text-slate-600 hover:text-slate-900";
+        wrapperPreset.classList.remove('hidden');
+        wrapperCustom.classList.add('hidden');
+      } else {
+        btnCustom.className = "px-3 py-1 rounded-md font-medium shadow-sm transition-all bg-white text-slate-800";
+        btnPreset.className = "px-3 py-1 rounded-md font-medium transition-all text-slate-600 hover:text-slate-900";
+        wrapperCustom.classList.remove('hidden');
+        wrapperPreset.classList.add('hidden');
+      }
+    }
+
+    // --- 5. PHOTO UPLOAD LOGIC ---
+    // Reduz a foto (lado maior 1280px, JPEG) para caber no armazenamento do navegador
+    function compressImage(file, maxSide, quality) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+          const w = Math.round(img.naturalWidth * scale);
+          const h = Math.round(img.naturalHeight * scale);
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          const ctx = c.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(url);
+          resolve(c.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('imagem inválida')); };
+        img.src = url;
+      });
+    }
+
+    function showPhotoPreview(dataUrl) {
+      currentPhotoBase64 = dataUrl;
+      const img = document.getElementById('photoImg');
+      img.src = dataUrl;
+      img.classList.remove('hidden');
+      document.getElementById('photoPlaceholder').classList.add('hidden');
+      document.getElementById('btnRemovePhoto').classList.remove('hidden');
+    }
+
+    function handlePhotoUpload(event) {
+      const input = event.target;
+      const file = input.files[0];
+      if (!file) return;
+
+      compressImage(file, 1280, 0.72)
+        .then(showPhotoPreview)
+        .catch(() => {
+          if (file.size > 3 * 1024 * 1024) {
+            alert('Não foi possível reduzir esta foto. Tente outra imagem (JPG ou PNG).');
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = e => showPhotoPreview(e.target.result);
+          reader.readAsDataURL(file);
+        })
+        .finally(() => { input.value = ''; });
+    }
+
+    function removePhoto() {
+      currentPhotoBase64 = '';
+      document.getElementById('photoInputCamera').value = '';
+      document.getElementById('photoInputGallery').value = '';
+      document.getElementById('photoImg').src = '';
+      document.getElementById('photoImg').classList.add('hidden');
+      document.getElementById('photoPlaceholder').classList.remove('hidden');
+      document.getElementById('btnRemovePhoto').classList.add('hidden');
+    }
+
+    // --- 6. SIGNATURE PAD LOGIC (HDPI / Retina Support) ---
+    function initSignaturePad() {
+      canvas = document.getElementById('signaturePad');
+      ctx = canvas.getContext('2d');
+      resizeCanvas();
+
+      // Mouse events
+      canvas.addEventListener('mousedown', startDrawing);
+      canvas.addEventListener('mousemove', draw);
+      canvas.addEventListener('mouseup', stopDrawing);
+      canvas.addEventListener('mouseleave', stopDrawing);
+
+      // Touch events
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          startDrawing(touch);
+        }
+      }, { passive: false });
+
+      canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          draw(touch);
+        }
+      }, { passive: false });
+
+      canvas.addEventListener('touchend', (e) => {
+        stopDrawing();
+      });
+    }
+
+    function resizeCanvas() {
+      if (!canvas || !canvas.parentElement) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      
+      ctx.scale(dpr, dpr);
+      clearSignature();
+    }
+
+    function getCanvasCoordinates(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+
+    function startDrawing(e) {
+      isDrawingSignature = true;
+      hasSignatureStroke = true;
+      document.getElementById('signatureHint').style.display = 'none';
+      ctx.beginPath();
+      const coords = getCanvasCoordinates(e);
+      ctx.moveTo(coords.x, coords.y);
+    }
+
+    function draw(e) {
+      if (!isDrawingSignature) return;
+      const coords = getCanvasCoordinates(e);
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineTo(coords.x, coords.y);
+      ctx.stroke();
+    }
+
+    function stopDrawing() {
+      isDrawingSignature = false;
+    }
+
+    function clearSignature() {
+      if (!ctx || !canvas) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      hasSignatureStroke = false;
+      const hint = document.getElementById('signatureHint');
+      if (hint) hint.style.display = 'flex';
+    }
+
+    // --- 7. SAVE DDS LOGIC ---
+   function saveDDS(e) {
+  e.preventDefault();
+
+  const datetime = document.getElementById('ddsDateTime').value;
+  const sector = document.getElementById('ddsSector').value.trim();
+  const facilitator = document.getElementById('ddsFacilitator').value.trim();
+  const notes = document.getElementById('ddsNotes').value.trim();
+
+  let themeTitle = '';
+  if (currentThemeMode === 'preset') {
+    themeTitle = document.getElementById('themeSelect').value;
+  } else {
+    themeTitle = document.getElementById('themeCustomInput').value.trim();
+  }
+
+  if (!themeTitle) {
+    alert('Por favor, informe ou selecione o tema do DDS.');
+    return;
+  }
+
+  if (selectedWorkerIds.size === 0) {
+    alert('Adicione pelo menos 1 participante ao DDS.');
+    return;
+  }
+
+  const participantsList = Array.from(selectedWorkerIds).map(id => {
+    return currentWorkers.find(w => w.id === id);
+  }).filter(Boolean);
+
+  let signatureData = '';
+  if (hasSignatureStroke) {
+    signatureData = canvas.toDataURL('image/png');
+  }
+
+  const newRecord = {
+    action: 'saveDDS',
+    id: 'dds_' + Date.now(),
+    dateTime: datetime,
+    sector: sector,
+    facilitator: facilitator,
+    theme: themeTitle,
+    themeMode: currentThemeMode,
+    notes: notes,
+    participants: participantsList,
+    photo: currentPhotoBase64,
+    signature: signatureData
+  };
+
+  // Salva no histórico local (para o Dashboard do HTML continuar funcionando)
+  const history = getStoredHistory();
+  history.unshift(newRecord);
+  let espacoCheio = false;
+  try {
+    localStorage.setItem(STORAGE_KEY_DDS, JSON.stringify(history));
+  } catch (err) {
+    // Armazenamento cheio: guarda foto/assinatura só na memória para o envio e salva o registro sem elas
+    espacoCheio = true;
+    pendingFull[newRecord.id] = newRecord;
+    history[0] = Object.assign({}, newRecord, { photo: '', signature: '' });
+    try { localStorage.setItem(STORAGE_KEY_DDS, JSON.stringify(history)); }
+    catch (err2) { history.shift(); }
+  }
+
+  // Envia para a planilha/Drive (com fila de reenvio) e sincroniza com os outros navegadores
+  queueSheetOp({ action: 'saveDDS', id: newRecord.id, ref: true });
+  alert('✅ DDS salvo e enviado para a planilha. Os outros navegadores vão receber na próxima sincronização.' +
+    (espacoCheio ? '\n\n⚠ O armazenamento deste navegador está cheio. Mantenha esta página aberta até a sincronização terminar.' : ''));
+
+  // Limpa o formulário
+  document.getElementById('ddsForm').reset();
+  selectedWorkerIds.clear();
+  renderSelectedWorkers();
+  removePhoto();
+  clearSignature();
+  initDatetime();
+
+  updateHistoryStats();
+  switchTab('history');
+}
+
+    function getStoredHistory() {
+      const stored = localStorage.getItem(STORAGE_KEY_DDS);
+      if (!stored) return [];
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function updateHistoryStats() {
+      const history = getStoredHistory();
+      document.getElementById('statTotalDDS').textContent = history.length;
+      document.getElementById('badgeHistoryCount').textContent = history.length;
+    }
+
+    // --- 8. HISTÓRICO & RENDER LOGIC ---
+    function switchTab(tab) {
+      const tabDashboard = document.getElementById('tabDashboard');
+      const tabNew = document.getElementById('tabNew');
+      const tabWorkers = document.getElementById('tabWorkers');
+      const tabHistory = document.getElementById('tabHistory');
+      
+      const btnDashboard = document.getElementById('tabDashboardBtn');
+      const btnNew = document.getElementById('tabNewBtn');
+      const btnWorkers = document.getElementById('tabWorkersBtn');
+      const btnHistory = document.getElementById('tabHistoryBtn');
+
+      // Hide all tabs
+      tabDashboard.classList.add('hidden');
+      tabNew.classList.add('hidden');
+      tabWorkers.classList.add('hidden');
+      tabHistory.classList.add('hidden');
+
+      // Reset button styles
+      const defaultBtnStyle = "flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap";
+      const activeBtnStyle = "flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors border-brand-600 text-brand-600 whitespace-nowrap";
+
+      btnDashboard.className = defaultBtnStyle;
+      btnNew.className = defaultBtnStyle;
+      btnWorkers.className = defaultBtnStyle;
+      btnHistory.className = defaultBtnStyle;
+
+      if (tab === 'dashboard') {
+        tabDashboard.classList.remove('hidden');
+        btnDashboard.className = activeBtnStyle;
+        renderDashboard();
+        syncFromSheet();
+      } else if (tab === 'new') {
+        tabNew.classList.remove('hidden');
+        btnNew.className = activeBtnStyle;
+        setTimeout(resizeCanvas, 100);
+      } else if (tab === 'workers') {
+        tabWorkers.classList.remove('hidden');
+        btnWorkers.className = activeBtnStyle;
+        renderTabWorkersTable();
+      } else if (tab === 'history') {
+        tabHistory.classList.remove('hidden');
+        btnHistory.className = activeBtnStyle;
+        renderHistoryList();
+      }
+    }
+
+    function filterHistory() {
+      renderHistoryList();
+    }
+
+    function renderHistoryList() {
+      const historyGrid = document.getElementById('historyGrid');
+      const emptyState = document.getElementById('historyEmpty');
+      const history = getStoredHistory();
+
+      const query = (document.getElementById('searchHistory')?.value || '').toLowerCase();
+      const dateFilter = document.getElementById('filterDate')?.value || '';
+
+      let filtered = history.filter(rec => {
+        const matchesQuery = !query || 
+          rec.theme.toLowerCase().includes(query) ||
+          rec.sector.toLowerCase().includes(query) ||
+          rec.facilitator.toLowerCase().includes(query);
+
+        const matchesDate = !dateFilter || (rec.dateTime && rec.dateTime.startsWith(dateFilter));
+
+        return matchesQuery && matchesDate;
+      });
+
+      if (filtered.length === 0) {
+        historyGrid.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      let html = '';
+
+      filtered.forEach(rec => {
+        const formattedDate = new Date(rec.dateTime).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+        const participantCount = partCount(rec);
+
+        html += `
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+            <div class="space-y-3">
+              <div class="flex items-start justify-between gap-2">
+                <span class="text-[10px] bg-brand-50 text-brand-700 font-bold px-2.5 py-1 rounded-md border border-brand-100">
+                  ${formattedDate}
+                </span>
+                <span class="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full">
+                  ${participantCount} participante(s)
+                </span>
+              </div>
+
+              <div>
+                <h3 class="font-bold text-slate-900 text-sm leading-snug line-clamp-2">${rec.theme}</h3>
+                <p class="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                  <i data-lucide="map-pin" class="w-3.5 h-3.5 text-slate-400"></i> ${rec.sector}
+                </p>
+                <p class="text-xs text-slate-500 flex items-center gap-1">
+                  <i data-lucide="user" class="w-3.5 h-3.5 text-slate-400"></i> Facilitador: ${rec.facilitator}
+                </p>
+              </div>
+
+              ${rec.notes ? `<p class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 line-clamp-2 italic">"${rec.notes}"</p>` : ''}
+            </div>
+
+            <div class="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between gap-2">
+              <button type="button" onclick="viewDDSModal('${rec.id}')"
+                      class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs rounded-lg transition-colors flex items-center gap-1">
+                <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ver Evidência
+              </button>
+
+              <button type="button" onclick="deleteDDSRecord('${rec.id}')" title="Excluir Registro"
+                      class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      historyGrid.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    function viewDDSModal(id) {
+      const history = getStoredHistory();
+      const record = history.find(r => r.id === id);
+      if (!record) return;
+
+      const modal = document.getElementById('modalViewDDS');
+      const printArea = document.getElementById('printArea');
+
+      const formattedDate = new Date(record.dateTime).toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' });
+
+      let participantsHtml = '';
+      if (record.participants && record.participants.length > 0) {
+        record.participants.forEach((p, idx) => {
+          participantsHtml += `
+            <tr class="border-b border-slate-100 text-xs">
+              <td class="py-2 px-3 font-medium text-slate-800">${idx + 1}. ${p.name}</td>
+              <td class="py-2 px-3 text-slate-600">${p.role}</td>
+              <td class="py-2 px-3 font-mono text-slate-600">${p.reg}</td>
+            </tr>
+          `;
+        });
+      } else {
+        participantsHtml = `<tr><td colspan="3" class="py-4 text-center text-xs text-slate-400 italic">Nenhum participante registrado.</td></tr>`;
+      }
+
+      printArea.innerHTML = `
+        <div class="border-b-2 border-slate-800 pb-4 mb-4">
+          <div class="flex justify-between items-start">
+            <div>
+              <h2 class="text-xl font-bold text-slate-900 uppercase tracking-tight">Comprovação de Diálogo Diário de Segurança (DDS)</h2>
+              <p class="text-xs text-slate-500">Consórcio Facility Maré • SafeGuard DDS</p>
+            </div>
+            <div class="text-right text-xs text-slate-500">
+              <p class="font-bold text-slate-800">REGISTRO DE EVIDÊNCIA</p>
+              <p>ID: ${record.id}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- DETAILS GRID -->
+        <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+          <div>
+            <p class="font-semibold text-slate-500 uppercase text-[10px]">Data e Horário</p>
+            <p class="font-bold text-slate-800">${formattedDate}</p>
+          </div>
+          <div>
+            <p class="font-semibold text-slate-500 uppercase text-[10px]">Setor / Local</p>
+            <p class="font-bold text-slate-800">${record.sector}</p>
+          </div>
+          <div class="col-span-2">
+            <p class="font-semibold text-slate-500 uppercase text-[10px]">Tema Tratado</p>
+            <p class="font-bold text-brand-700 text-sm">${record.theme}</p>
+          </div>
+          <div>
+            <p class="font-semibold text-slate-500 uppercase text-[10px]">Facilitador / Condutor</p>
+            <p class="font-bold text-slate-800">${record.facilitator}</p>
+          </div>
+          <div>
+            <p class="font-semibold text-slate-500 uppercase text-[10px]">Total de Participantes</p>
+            <p class="font-bold text-slate-800">${partCount(record)} colaboradores</p>
+          </div>
+        </div>
+
+        ${record.notes ? `
+          <div class="space-y-1">
+            <h4 class="font-bold text-xs text-slate-700 uppercase tracking-wider">Pontos Abordados & Observações</h4>
+            <p class="text-xs bg-white p-3 rounded-lg border border-slate-200 text-slate-700 whitespace-pre-wrap">${record.notes}</p>
+          </div>
+        ` : ''}
+
+        <!-- LIST OF PARTICIPANTS -->
+        <div class="space-y-2">
+          <h4 class="font-bold text-xs text-slate-700 uppercase tracking-wider">Lista de Presença dos Trabalhadores</h4>
+          <div class="border border-slate-200 rounded-lg overflow-hidden">
+            <table class="w-full text-left border-collapse">
+              <thead class="bg-slate-100 text-[10px] font-bold text-slate-600 uppercase border-b border-slate-200">
+                <tr>
+                  <th class="py-2 px-3">Nome do Trabalhador</th>
+                  <th class="py-2 px-3">Cargo / Função</th>
+                  <th class="py-2 px-3">Matrícula</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${participantsHtml}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- EVIDENCES SECTION -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          ${record.photo ? `
+            <div class="space-y-1">
+              <h4 class="font-bold text-xs text-slate-700 uppercase tracking-wider">Registro Fotográfico</h4>
+              <div class="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 p-1">
+                <img src="${record.photo}" class="w-full h-48 object-cover rounded-lg">
+              </div>
+            </div>
+          ` : ''}
+
+          ${record.signature ? `
+            <div class="space-y-1">
+              <h4 class="font-bold text-xs text-slate-700 uppercase tracking-wider">Assinatura Digital do Condutor</h4>
+              <div class="border border-slate-200 rounded-xl bg-slate-50 p-2 flex flex-col items-center justify-center h-48">
+                <img src="${record.signature}" class="max-h-36 object-contain">
+                <p class="text-[10px] text-slate-400 border-t border-slate-200 w-full text-center pt-1 mt-1">${record.facilitator}</p>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeViewDDSModal() {
+      document.getElementById('modalViewDDS').classList.add('hidden');
+    }
+
+    function printModalDDS() {
+      window.print();
+    }
+
+    function deleteDDSRecord(id) {
+      if (!confirm('Tem certeza que deseja excluir este registro de DDS do histórico?')) return;
+
+      let history = getStoredHistory();
+      queueSheetOp({ action: 'deleteDDS', id: id });
+      history = history.filter(r => r.id !== id);
+      localStorage.setItem(STORAGE_KEY_DDS, JSON.stringify(history));
+
+      updateHistoryStats();
+      renderHistoryList();
+    }
+
+    function clearAllHistory() {
+      const history = getStoredHistory();
+      if (history.length === 0) {
+        alert('O histórico já está vazio.');
+        return;
+      }
+
+      if (!confirm('ATENÇÃO: Deseja apagar TODO o histórico de DDS registrados? Esta ação não pode ser desfeita.')) return;
+
+      queueSheetOp({ action: 'clearDDS' });
+      localStorage.removeItem(STORAGE_KEY_DDS);
+      updateHistoryStats();
+      renderHistoryList();
+    }
+
+    function exportJSON() {
+      const history = getStoredHistory();
+      if (history.length === 0) {
+        alert('Nenhum dado para exportar.');
+        return;
+      }
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(history, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `safeguard_dds_backup_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    // --- 9. DASHBOARD METRICS & CHARTS LOGIC ---
+    function renderDashboard() {
+      const history = getStoredHistory();
+
+      // 1. KPI Calculations
+      const totalDDS = history.length;
+      let totalPresences = 0;
+      const activeWorkerIds = new Set();
+      const sectorCounts = {};
+      const facilitatorCounts = {};
+      const monthlyCounts = {};
+
+      const now = new Date();
+      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      let ddsCurrentMonth = 0;
+
+      history.forEach(rec => {
+        const pCount = partCount(rec);
+        totalPresences += pCount;
+
+        if (rec.participants) {
+          rec.participants.forEach(p => activeWorkerIds.add(p.id || p.reg || p.name));
+        }
+
+        // Sector count
+        const sec = rec.sector || 'Outros';
+        sectorCounts[sec] = (sectorCounts[sec] || 0) + 1;
+
+        // Facilitator count
+        const fac = rec.facilitator || 'Não Informado';
+        if (!facilitatorCounts[fac]) {
+          facilitatorCounts[fac] = { ddsCount: 0, presences: 0 };
+        }
+        facilitatorCounts[fac].ddsCount += 1;
+        facilitatorCounts[fac].presences += pCount;
+
+        // Date monthly grouping
+        if (rec.dateTime) {
+          const mKey = rec.dateTime.slice(0, 7); // YYYY-MM
+          monthlyCounts[mKey] = (monthlyCounts[mKey] || 0) + 1;
+          if (mKey === currentMonthKey) {
+            ddsCurrentMonth++;
+          }
+        }
+      });
+
+      // Populate KPI 1
+      document.getElementById('kpiTotalDDS').textContent = totalDDS;
+      document.getElementById('kpiDDSMonthSubText').textContent = `${ddsCurrentMonth} no mês atual`;
+
+      // Populate KPI 2
+      document.getElementById('kpiTotalPresences').textContent = totalPresences;
+      const avgPresence = totalDDS > 0 ? (totalPresences / totalDDS).toFixed(1) : '0';
+      document.getElementById('kpiAvgPresenceSubText').textContent = `Média: ${avgPresence} por DDS`;
+
+      // Populate KPI 3
+      document.getElementById('kpiTotalWorkers').textContent = currentWorkers.length;
+      document.getElementById('kpiActiveWorkersSubText').textContent = `${activeWorkerIds.size} participaram pelo menos 1x`;
+
+      // Populate KPI 4 (Top Sector)
+      let topSector = '-';
+      let topSectorMax = 0;
+      Object.keys(sectorCounts).forEach(sec => {
+        if (sectorCounts[sec] > topSectorMax) {
+          topSectorMax = sectorCounts[sec];
+          topSector = sec;
+        }
+      });
+      document.getElementById('kpiTopSector').textContent = topSector;
+      document.getElementById('kpiTopSectorSubText').textContent = `${topSectorMax} registros`;
+
+      // 2. Render Top Facilitators Table
+      renderTopFacilitatorsTable(facilitatorCounts);
+
+      // 3. Render Recent Activity List
+      renderRecentActivityList(history.slice(0, 5));
+
+      // 4. Render Charts (Monthly Trend + Sector Distribution)
+      renderMonthlyTrendChart(monthlyCounts);
+      renderSectorDistributionChart(sectorCounts);
+    }
+
+    function renderTopFacilitatorsTable(facilitatorCounts) {
+      const tbody = document.getElementById('tableTopFacilitators');
+      const sorted = Object.keys(facilitatorCounts)
+        .map(name => ({ name, ...facilitatorCounts[name] }))
+        .sort((a, b) => b.ddsCount - a.ddsCount)
+        .slice(0, 5);
+
+      if (sorted.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-xs text-slate-400 italic">Nenhum dado disponível.</td></tr>`;
+        return;
+      }
+
+      let html = '';
+      sorted.forEach((item, idx) => {
+        html += `
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="py-2.5 px-3 font-semibold text-slate-800 flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 font-bold text-[10px] flex items-center justify-center">${idx + 1}</span>
+              ${item.name}
+            </td>
+            <td class="py-2.5 px-3 text-center font-bold text-brand-600">${item.ddsCount}</td>
+            <td class="py-2.5 px-3 text-right text-slate-600">${item.presences} presenças</td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
+    }
+
+    function renderRecentActivityList(recentRecords) {
+      const container = document.getElementById('recentActivityList');
+      if (recentRecords.length === 0) {
+        container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 italic">Nenhum registro recente.</div>`;
+        return;
+      }
+
+      let html = '';
+      recentRecords.forEach(rec => {
+        const formattedDate = new Date(rec.dateTime).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+        html += `
+          <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between gap-3 text-xs">
+            <div class="overflow-hidden">
+              <p class="font-bold text-slate-800 truncate">${rec.theme}</p>
+              <p class="text-[11px] text-slate-500">${rec.sector} • ${rec.facilitator}</p>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="text-[10px] bg-brand-100 text-brand-800 font-bold px-2 py-0.5 rounded-full">${formattedDate}</span>
+              <p class="text-[10px] text-slate-400 mt-1">${partCount(rec)} participantes</p>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function renderMonthlyTrendChart(monthlyCounts) {
+      const ctxChart = document.getElementById('chartMonthlyTrend').getContext('2d');
+      if (monthlyTrendChartInstance) {
+        monthlyTrendChartInstance.destroy();
+      }
+
+      // Generate last 6 months keys
+      const labels = [];
+      const data = [];
+      const now = new Date();
+
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const monthLabel = d.toLocaleString('pt-BR', { month: 'short', year: '2-digit' });
+        labels.push(monthLabel);
+        data.push(monthlyCounts[mKey] || 0);
+      }
+
+      monthlyTrendChartInstance = new Chart(ctxChart, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'DDS Realizados',
+            data: data,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+            pointBackgroundColor: '#1d4ed8',
+            pointRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0, font: { size: 10 } },
+              grid: { color: '#f1f5f9' }
+            },
+            x: {
+              ticks: { font: { size: 10 } },
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
+
+    function renderSectorDistributionChart(sectorCounts) {
+      const ctxChart = document.getElementById('chartSectorDistribution').getContext('2d');
+      if (sectorDistChartInstance) {
+        sectorDistChartInstance.destroy();
+      }
+
+      const labels = Object.keys(sectorCounts);
+      const data = Object.values(sectorCounts);
+
+      if (labels.length === 0) {
+        labels.push('Sem Dados');
+        data.push(1);
+      }
+
+      const colors = [
+        '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', 
+        '#ec4899', '#06b6d4', '#64748b', '#84cc16'
+      ];
+
+      sectorDistChartInstance = new Chart(ctxChart, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: colors.slice(0, labels.length),
+            borderWidth: 2,
+            borderColor: '#ffffff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { font: { size: 11 }, boxWidth: 12 }
+            }
+          },
+          cutout: '65%'
+        }
+      });
+    }
+  </script>
+</body>
+</html>
